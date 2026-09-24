@@ -211,16 +211,10 @@ def _unmet_bar_by_group(df_unmet, split_col, key):
     sub = sub.sort_values("unmet_need", ascending=False)
     fig = go.Figure()
     fig.add_bar(
-        name="Unmet need", x=sub["group"].astype(str), y=sub["unmet_need"],
+        name="Spacing-demand proxy", x=sub["group"].astype(str), y=sub["unmet_need"],
         marker_color=FEM_BROWN,
         text=[f"{v*100:.0f}%" for v in sub["unmet_need"]], textposition="outside",
     )
-    if sub["unmet_demand"].notna().any():
-        fig.add_bar(
-            name="Unmet demand", x=sub["group"].astype(str), y=sub["unmet_demand"],
-            marker_color=FEM_ORANGE,
-            text=[f"{v*100:.0f}%" for v in sub["unmet_demand"]], textposition="outside",
-        )
     fig.update_layout(
         barmode="group",
         yaxis=dict(tickformat=".0%", showgrid=False, title="% of respondents"),
@@ -355,50 +349,25 @@ def render_funnel(df_funnel, split_col):
 # ── Section renderers ─────────────────────────────────────────────────────────
 
 def render_unmet(df_unmet, df_funnel, split_col):
-    st.subheader("Unmet need & unmet demand")
+    st.subheader("Spacing demand (proxy)")
     st.caption(
-        "**Spacing-demand proxy** — says she wants to space children now or in "
-        "the future but isn't currently using any method. This Nigeria form "
-        "does not ask the preferred-pregnancy timing question required for a "
-        "standard timing-based unmet-need estimate. **Unmet demand** is the "
-        "narrower cut within the proxy group: women who also say they're "
-        "interested in or open to using contraception in future."
+        "A standard unmet-need or unmet-demand estimate cannot be calculated from "
+        "this Nigeria survey. The form asks only whether respondents want to space "
+        "children now or in the future; it does not ask the preferred timing of the "
+        "next pregnancy or the full fertility-preference questions required by the "
+        "DHS/FP2030 definition. The chart below is therefore only a spacing-demand "
+        "proxy, not an official unmet-need or unmet-demand measure."
     )
     if df_unmet is None or df_unmet.empty:
-        st.warning(_MISSING)
+        st.info("No spacing-demand proxy output is available for this region.")
         return
 
     overall = df_unmet[(df_unmet["split"] == split_col) & (df_unmet["group"] == "all")]
     if not overall.empty:
         row = overall.iloc[0]
-        mcpr = _mcpr_value(df_funnel, split_col, "all")
-        total_cpr = _total_cpr_value(df_funnel, split_col, "all")
-        cols = st.columns(3)
-        cols[0].metric("Unmet need", f"{row['unmet_need']*100:.1f}%")
-        if pd.notna(row.get("unmet_demand")):
-            cols[1].metric("Unmet demand", f"{row['unmet_demand']*100:.1f}%")
-        if mcpr is not None and total_cpr is not None and pd.notna(row.get("unmet_need")):
-            # Official DHS formula: mCPR / (total CPR + unmet need), NOT
-            # mCPR / (mCPR + unmet need) -- total CPR (current_use) includes
-            # traditional-method users, who are correctly excluded from the
-            # unmet-need numerator (their need counts as "met") but need to
-            # stay in this denominator or they vanish from demand entirely.
-            total_demand = total_cpr + row["unmet_need"]
-            if total_demand:
-                cols[2].metric(
-                    "Demand satisfied (modern methods)",
-                    f"{mcpr / total_demand * 100:.1f}%",
-                    help=(
-                        "mCPR ÷ (total CPR [any method] + unmet need) — official DHS "
-                        "\"demand satisfied by modern methods\" formula. Total CPR "
-                        f"here is {total_cpr*100:.1f}% (vs. {mcpr*100:.1f}% mCPR alone) "
-                        "since traditional-method users count toward total demand "
-                        "being met, even though their method isn't classified as "
-                        "\"modern.\""
-                    ),
-                )
+        st.metric("Spacing-demand proxy", f"{row['unmet_need']*100:.1f}%")
 
-    st.markdown("**By split**")
+    st.markdown("**Proxy by split**")
     _unmet_bar_by_group(df_unmet, split_col, key=f"fp_unmet_{split_col}")
 
 

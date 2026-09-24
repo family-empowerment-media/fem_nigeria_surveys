@@ -129,6 +129,46 @@ def _translate_hausa(s):
     # are added here).
     return HAUSA_ENG.get(s, s)
 
+
+def _categorize_nonuse_writein(text):
+    """Assign a broad, non-identifying category to a non-use write-in."""
+    if pd.isna(text) or not str(text).strip():
+        return "Other (unclassified)"
+    value = str(text).lower()
+    categories = (
+        ("More children / fertility preference", ("child", "yaro", "yara", "haihuwa", "haifuwa", "pregnan")),
+        ("Side effects / health concerns", ("side effect", "health", "bleed", "matsala", "lafiya", "jini")),
+        ("Partner / family / religion", ("husband", "wife", "partner", "family", "relig", "miji", "iyali", "addini")),
+        ("Cost / access", ("cost", "expensive", "money", "clinic", "access", "kudi", "tsada")),
+        ("Knowledge / information", ("know", "knowledge", "information", "understand", "sani", "bayani")),
+    )
+    for category, terms in categories:
+        if any(term in value for term in terms):
+            return category
+    return "Other (unclassified)"
+
+
+def _nonuse_reason_series(frame):
+    """Return coded non-use reasons with write-ins converted to categories."""
+    reasons = frame.get("reason_current_nonuse", pd.Series(index=frame.index, dtype="string")).astype("string")
+    writeins = frame.get("reason_nonuse_main_other", pd.Series(index=frame.index, dtype="string"))
+    fallback = frame.get("reason_nonuse_other", pd.Series(index=frame.index, dtype="string"))
+    writeins = writeins.fillna(fallback)
+
+    def normalize(row):
+        selected_value = row.iloc[0]
+        writein = row.iloc[1]
+        selected = [] if pd.isna(selected_value) else [
+            part.strip() for part in str(selected_value).split("|") if part.strip()
+        ]
+        if pd.notna(writein) and str(writein).strip():
+            category = _categorize_nonuse_writein(writein)
+            selected = [value for value in selected if "other" not in value.lower() and "wasu irin zabi" not in value.lower()]
+            selected.append(category)
+        return "|".join(dict.fromkeys(selected)) if selected else np.nan
+
+    return pd.concat([reasons, writeins], axis=1).apply(normalize, axis=1)
+
 def _mentions_modern_method(cell):
     """True if a pipe-delimited multi-select cell names >=1 modern/effective
     method (MODERN_METHODS). Shared by effective_use (current_use_methods)
@@ -426,8 +466,11 @@ def run(df):
 
     # ── Non-use reasons (free text — aggregated counts only, no raw text) ─────
     if "reason_current_nonuse" in df.columns:
+        df["nonuse_reason_category"] = _nonuse_reason_series(df)
         counts = (
-            df[df["reason_current_nonuse"].notna()]["reason_current_nonuse"]
+            df[df["nonuse_reason_category"].notna()]["nonuse_reason_category"]
+            .str.split("|")
+            .explode()
             .value_counts()
             .head(20)
             .reset_index()

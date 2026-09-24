@@ -12,9 +12,44 @@ Output files:
 import pandas as pd
 import numpy as np
 import os
+import re
+from pathlib import Path
 
 from pipeline.config import WEIGHT_COL, SPLIT_COLS, APP_DATA_DIR
 from pipeline.utils import save, load_raw
+
+
+def _extract_statement_text(text):
+    """Keep the quoted statement and discard enumerator instructions."""
+    text = " ".join(str(text).split())
+    quoted = re.findall(r'["“](.*?)["”]', text)
+    return max(quoted, key=len).strip() if quoted else text
+
+
+def _form_statement_labels():
+    """Map cleaned statement_N columns to the XLSForm's question text."""
+    form_path = Path(__file__).resolve().parents[2] / "2023+Northern+Nigeria_+Survey+Data+Collection.xlsx"
+    if not form_path.exists():
+        return {}
+    try:
+        from processing.clean import _read_xlsx_metadata
+        survey, _ = _read_xlsx_metadata(form_path)
+    except Exception:
+        return {}
+
+    labels = {}
+    number = 0
+    for row in survey.itertuples(index=False):
+        name = str(getattr(row, "name", ""))
+        if not name.startswith("Agree_"):
+            continue
+        number += 1
+        text = str(getattr(row, "hint", "") or getattr(row, "label", ""))
+        text = _extract_statement_text(text)
+        if text:
+            labels[f"statement_{number}"] = text
+            labels[name] = text
+    return labels
 
 
 def run(df, statement_labels_path=None):
@@ -59,13 +94,13 @@ def run(df, statement_labels_path=None):
     # Load statement labels if available
     # NOTE: was ISO-8859-1 (matched Niger's statement_labels.csv export encoding);
     # Benin's replacement file is UTF-8, consistent with the rest of this pipeline.
-    label_map = {}
+    label_map = _form_statement_labels()
     if statement_labels_path and os.path.exists(statement_labels_path):
         ldf = pd.read_csv(statement_labels_path, encoding="utf-8")
         ldf.columns = ldf.columns.str.strip()
         ldf.dropna(how="all", inplace=True)
         if "statement" in ldf.columns and "label_en" in ldf.columns:
-            label_map = ldf.set_index("statement")["label_en"].to_dict()
+            label_map.update(ldf.set_index("statement")["label_en"].to_dict())
 
     df_melted["label"] = df_melted["statement"].map(label_map).fillna(df_melted["statement"])
 

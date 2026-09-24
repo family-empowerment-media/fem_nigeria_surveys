@@ -55,8 +55,18 @@ To run only selected pages:
 
 ```bash
 python pipeline_output/pipeline/run_pipeline.py \
-  --pages respondents access statements family_planning personality personas radio
+  --pages respondents access drivers_barriers statements family_planning personality personas
 ```
+
+The drivers/barriers ETL builds `drivers_barriers.csv` from the Nigeria XLSForm
+fields `Presentuser_drivers`, `Intendeduser_drivers`, `User_barriers`, and
+`Nonuser_barriers`, including subgroup prevalence, raw n, and weighted n. The
+Priority follows Benin's rank rule and can use its statement-difference boost
+when a valid Nigeria-specific `nigeria_statement_links.csv` is provided. The
+attached Benin links cannot be copied by numeric statement ID: Benin has 62
+statement fields while Nigeria has 50, and the numbering differs. Until a
+Nigeria statement crosswalk is reviewed, `Statements` remain blank and only
+the rank rule is applied.
 
 ### 3. Validate generated outputs
 

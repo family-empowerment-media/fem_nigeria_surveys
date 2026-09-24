@@ -32,6 +32,8 @@ ALIASES = {
     "reason_nonuse_mc": ("reason_nonuse_mc", "User_barriers", "Nonuser_barriers"),
     "reason_use_main": ("reason_use_main", "User_most_important_driver"),
     "reason_nonuse_main": ("reason_nonuse_main", "Nonuser_most_important_barrier"),
+    "reason_nonuse_main_other": ("reason_nonuse_main_other", "Nonuser_most_important_barrier_other"),
+    "reason_nonuse_other": ("reason_nonuse_other", "Barrier_others"),
 }
 
 FORM_ALIASES = {

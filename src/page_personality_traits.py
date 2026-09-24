@@ -114,7 +114,7 @@ def render_life_goals(df_goals, df_achievable, split_col):
     st.caption("Top 3 things respondents would most like to change in their lives.")
 
     if df_goals is None:
-        st.warning(_MISSING)
+        st.info("Life-goal aggregates are not available for the selected region.")
         return
 
     col1, col2 = st.columns([3, 2])
@@ -198,7 +198,10 @@ def render_wellbeing(df_wellbeing, split_col):
     st.caption("Self-reported joy and life satisfaction.")
 
     if df_wellbeing is None:
-        st.warning(_MISSING)
+        st.info(
+            "Wellbeing metrics are not available: the Nigeria XLSForm does not include "
+            "the happiness and satisfaction questions used by this section."
+        )
         return
 
     # NOTE: Niger's version rendered this as a 6-category Likert stacked bar

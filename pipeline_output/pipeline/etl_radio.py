@@ -233,19 +233,19 @@ RADIO_BILINGUAL_QUESTIONS = [
 ]
 
 
-def strip_fon(text):
-    """Return only the French half of a bilingual 'French/Fon' label.
-    Handles pipe-delimited multi-select values. Preserves NaN."""
+def strip_nigerian_language(text):
+    """Keep the English option shown in parentheses in Nigerian labels."""
     if pd.isna(text):
         return text
     text = str(text).strip()
     if "|" in text:
-        parts = [strip_fon(p) for p in text.split("|")]
+        parts = [strip_nigerian_language(p) for p in text.split("|")]
         parts = [p for p in parts if pd.notna(p) and p != ""]
         return "|".join(parts) if parts else np.nan
-    if "/" in text:
-        french = text.split("/", 1)[0].strip()
-        return french if french else text
+    bracketed = re.findall(r"\(([^()]*)\)", text)
+    if bracketed:
+        english = bracketed[-1].strip()
+        return english if english else text
     return text
 
 
@@ -751,11 +751,6 @@ def run(df, station_path: str = None):
     """Main ETL pipeline for radio data."""
     print("  [radio] running...")
 
-    if COUNTRY == "Nigeria":
-        print("  [radio] skipped: this ETL uses Benin station and French/Fon mappings.")
-        print("  [radio] add a Nigeria-specific station mapping before enabling radio outputs.")
-        return
-    
     data = df.copy()
     data.columns = data.columns.str.strip()
     
@@ -787,13 +782,12 @@ def run(df, station_path: str = None):
     print(f"    {len(canonical_map)} distinct station mentions -> "
           f"{len(set(canonical_map.values()))} canonical stations")
 
-    # Strip the second-language half of the bilingual choice-list questions.
-    # This branch is currently used only by the legacy Benin ETL; Nigeria is
-    # returned above until its Hausa/English mappings are defined.
-    print("  [radio] stripping the second-language half of bilingual answers...")
+    # Nigerian choice labels put English in parentheses after the local-language
+    # text, e.g. "... (Yes)". Keep that English text for the app labels.
+    print("  [radio] extracting English labels from Nigerian bilingual answers...")
     for col in RADIO_BILINGUAL_QUESTIONS:
         if col in data.columns:
-            data[col] = data[col].apply(strip_fon)
+            data[col] = data[col].apply(strip_nigerian_language)
 
     # Build station-level table -- every station a respondent's point falls
     # inside, not just the nearest one (see build_radio_table's docstring).
@@ -803,7 +797,10 @@ def run(df, station_path: str = None):
     df_out, station_names = build_radio_table(data, station_members, WEIGHT_COL)
 
     if df_out.empty:
-        print("  Error: Output table is empty")
+        if station_match_df is None or station_match_df.empty:
+            print("  [radio] no output: Nigeria station membership data was not provided")
+        else:
+            print("  [radio] no output: no station responses were available")
         return
     
     # Build state-level table

@@ -178,31 +178,31 @@ def render_accessibility(df_travel, split_col):
             key="travel_nonusers",
         )
 
-    st.markdown("**Distance access gap**")
+    st.markdown("**Distance access — all respondents**")
     st.caption(
-        "Two groups — current/past users vs. everyone else (non-users) — compared on "
-        "how far they say they're willing to travel, and on their reported/expected "
-        "travel time. A gap between the two groups on either measure signals a "
-        "distance barrier; comparing the two charts also shows whether people are "
-        "actually traveling about as far as they say they're willing to."
+        "Nigeria's distance measures are shown for the single population group used "
+        "in this survey. The displayed sample size is the number of respondents "
+        "with a valid answer; weighted n is shown where available."
     )
     gap_col1, gap_col2 = st.columns(2)
     with gap_col1:
-        _hbar(
-            _get_metric(df_travel, "mean_wtt_by_group", "use_binary"),
-            "Average willingness to travel (minutes)",
-            pct=False,
-            caption="Current/past users vs. non-users (nonusers = everyone not a current/past user).",
-            key="wtt_by_group",
-        )
+        willingness = _get_metric(df_travel, "mean_wtt_population", "population")
+        _hbar(willingness, "Average willingness to travel (minutes)", pct=False, key="wtt_population")
     with gap_col2:
-        _hbar(
-            _get_metric(df_travel, "mean_travel_by_group", "use_binary"),
-            "Average travel time (minutes)",
-            pct=False,
-            caption="Users' actual reported travel time vs. non-users' expected travel time.",
-            key="travel_by_group",
-        )
+        travel = _get_metric(df_travel, "mean_travel_population", "population")
+        _hbar(travel, "Average reported/expected travel time (minutes)", pct=False, key="travel_population")
+
+    sample = df_travel[
+        df_travel["metric"].isin(["mean_wtt_population", "mean_travel_population"]) &
+        (df_travel["split"] == "population")
+    ]
+    if not sample.empty:
+        n = sample["n"].dropna().max() if "n" in sample else None
+        weighted_n = sample["weighted_n"].dropna().max() if "weighted_n" in sample else None
+        sample_text = f"Sample size: n={int(n):,}" if pd.notna(n) else "Sample size unavailable"
+        if pd.notna(weighted_n):
+            sample_text += f"; weighted n={float(weighted_n):,.1f}"
+        st.caption(sample_text)
 
     with st.expander("How do people get to facilities? (transport modes)"):
         c1, c2 = st.columns(2)
@@ -240,7 +240,7 @@ def render_affordability(df_afford, split_col):
     with col1:
         _hbar(
             _get_metric(df_afford, "mean_cost_users", split_col),
-            "Average cost paid — current/past users (CFA francs)",
+            "Average cost paid — current/past users (Naira)",
             pct=False,
             caption="Mean cost per contraceptive visit reported by current and past users.",
             key="cost_users",
@@ -248,7 +248,7 @@ def render_affordability(df_afford, split_col):
     with col2:
         _hbar(
             _get_metric(df_afford, "mean_cost_nonusers", split_col),
-            "Expected visit cost — non-users (CFA francs)",
+            "Expected visit cost — non-users (Naira)",
             pct=False,
             caption="Mean expected cost that non-users/future users anticipate paying.",
             key="cost_nonusers",

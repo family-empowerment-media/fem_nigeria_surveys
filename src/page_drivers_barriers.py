@@ -475,6 +475,18 @@ driver-side counterpart, so driver items intentionally show no statement chart.
 
     if df_raw is None:
         df_raw = load_drivers_barriers()
+    if df_raw is None or df_raw.empty:
+        st.info(
+            "Drivers and barriers tables have not been generated for Nigeria yet. "
+            "The table requires coded driver/barrier categories and priority rules."
+        )
+        return
+
+    required_columns = {"Driver/Barrier", "Priority", "Name"}
+    missing_columns = required_columns.difference(df_raw.columns)
+    if missing_columns:
+        st.error(f"Drivers/barriers output is missing columns: {', '.join(sorted(missing_columns))}")
+        return
 
     # ── Controls ──────────────────────────────────────────────────────────────
     col1, col2, col3, col4 = st.columns([0.7, 1.0, 1.4, 0.8], gap="medium")
@@ -487,8 +499,8 @@ driver-side counterpart, so driver items intentionally show no statement chart.
     with col3:
         priority_filter = st.multiselect(
             "Priority filter",
-            ["Very high", "High", "Medium", "Low"],
-            default=["Very high", "High", "Medium", "Low"],
+            ["Very high", "High", "Medium", "Low", "Not assigned"],
+            default=["Very high", "High", "Medium", "Low", "Not assigned"],
         )
     with col4:
         metric_choice = st.selectbox(

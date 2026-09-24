@@ -34,13 +34,14 @@ from pipeline.utils import load_raw
 
 import pipeline.etl_respondents     as etl_respondents
 import pipeline.etl_access         as etl_access
+import pipeline.etl_drivers_barriers as etl_drivers_barriers
 import pipeline.etl_statements      as etl_statements
 import pipeline.etl_family_planning as etl_family_planning
 import pipeline.etl_personality     as etl_personality
 import pipeline.etl_personas        as etl_personas
 import pipeline.etl_radio           as etl_radio
 
-ALL_PAGES = ["respondents", "access", "statements", "family_planning", "personality", "personas", "radio"]
+ALL_PAGES = ["respondents", "access", "drivers_barriers", "statements", "family_planning", "personality", "personas", "radio"]
 
 def run_pipeline(pages=None):
     pages = pages or ALL_PAGES
@@ -75,6 +76,8 @@ def run_pipeline(pages=None):
                 etl_respondents.run(df)
             elif page == "access":
                 etl_access.run(df)
+            elif page == "drivers_barriers":
+                etl_drivers_barriers.run(df)
             elif page == "statements":
                 etl_statements.run(df, statement_labels_path=DIR_STATEMENT_LABELS)
             elif page == "family_planning":

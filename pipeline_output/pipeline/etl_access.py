@@ -214,38 +214,34 @@ def run(df):
                 travel_rows.append({"metric": "mean_travel_nonusers", "split": split_col,
                                     "group": grp, "value": val})
 
-    # 2026-09-04: "Distance access gap" replaced, per the user's request, with
-    # two group-level averages instead of the users-only "% traveling farther
-    # than willing" rate -- (1) mean willingness-to-travel, current/past
-    # users vs. everyone else, and (2) mean reported/expected travel time,
-    # same two groups. Groups are fixed here (not one of ACCESS_SPLIT_COLS):
-    # "users" = current + past users (USER_GROUPS); "nonusers" = everyone
-    # else, i.e. NOT restricted to NONUSER_GROUPS -- future_user and any
-    # other/missing `use` value are folded in too, per the user's own framing
-    # ("nonusers: never users (everyone else)").
-    is_user = df["use"].isin(USER_GROUPS)
-    group_label = pd.Series(np.where(is_user, "Current/past users", "Non-users"), index=df.index)
+    # Nigeria's distance questions are analysed as one population group. Do
+    # not describe these as a users-versus-non-users gap: the available travel
+    # answers are not a comparable two-group design in this survey.
+    def append_population_mean(series, metric):
+        values = pd.to_numeric(series, errors="coerce")
+        valid = values.notna() & df[WEIGHT_COL].notna()
+        if not valid.any():
+            return
+        weights = df.loc[valid, WEIGHT_COL]
+        travel_rows.append({
+            "metric": metric,
+            "split": "population",
+            "group": "all respondents",
+            "value": (values[valid] * weights).sum() / weights.sum(),
+            "n": int(valid.sum()),
+            "weighted_n": weights.sum(),
+        })
 
     if "wtt_minutes" in df.columns:
-        tmp = df[["wtt_minutes"]].copy()
-        tmp[WEIGHT_COL] = df[WEIGHT_COL]
-        tmp["_group"] = group_label
-        s = split_weighted_mean(tmp, "wtt_minutes", "_group")
-        for grp, val in s.items():
-            travel_rows.append({"metric": "mean_wtt_by_group", "split": "use_binary",
-                                "group": grp, "value": val})
+        append_population_mean(df["wtt_minutes"], "mean_wtt_population")
 
-    # Reported travel time: users' own travel_time_users where available,
-    # nonusers' travel_time_nonusers (the time they'd expect to need) --
-    # combined into one column per respondent so both groups can be
-    # weighted-averaged the same way.
-    if "travel_time_users" in df.columns and "travel_time_nonusers" in df.columns:
-        combined_travel = df["travel_time_users"].where(is_user, df["travel_time_nonusers"])
-        tmp = pd.DataFrame({"_travel": combined_travel, WEIGHT_COL: df[WEIGHT_COL], "_group": group_label})
-        s = split_weighted_mean(tmp, "_travel", "_group")
-        for grp, val in s.items():
-            travel_rows.append({"metric": "mean_travel_by_group", "split": "use_binary",
-                                "group": grp, "value": val})
+    travel_series = None
+    for column in ("travel_time_users", "travel_time_nonusers"):
+        if column in df.columns:
+            candidate = pd.to_numeric(df[column], errors="coerce")
+            travel_series = candidate if travel_series is None else travel_series.fillna(candidate)
+    if travel_series is not None:
+        append_population_mean(travel_series, "mean_travel_population")
 
     # Transport mode value counts (qualitative, non-weighted)
     for col, label in [("transport_mode_users", "users"), ("transport_mode_nonusers", "nonusers")]:

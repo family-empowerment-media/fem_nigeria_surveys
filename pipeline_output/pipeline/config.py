@@ -43,10 +43,13 @@ station_path = os.environ.get("FEM_STATION_PATH", "")
 # NOTE: must match the filename table_analysis/src/config.py's DIR_WEIGHTED_DATA
 # actually writes -- currently "02_fem_survey_benin_weighted.csv" (the "02_"
 # prefix was added when the export path was moved off of DIR_CLEANED_DATA).
-DIR_MAPPED_DATA = os.environ.get(
-    "FEM_MAPPED_DATA",
-    str(PROJECT_ROOT / "processing_output" / f"nigeria_{SURVEY_REGION}_cleaned.csv"),
-)
+_default_mapped_data = PROJECT_ROOT / "processing_output" / f"nigeria_{SURVEY_REGION}_cleaned.csv"
+if SURVEY_REGION == "south" and not _default_mapped_data.exists():
+    legacy_south_data = PROJECT_ROOT / "processing_output" / "nigeria_south_east_cleaned.csv"
+    if legacy_south_data.exists():
+        _default_mapped_data = legacy_south_data
+
+DIR_MAPPED_DATA = os.environ.get("FEM_MAPPED_DATA", str(_default_mapped_data))
 
 # Where the app reads its pre-aggregated data from
 APP_DATA_DIR = os.environ.get(
